@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/supabaseClient.js';
 import AddSupplierForm from '@/components/AddSupplierForm.jsx';
@@ -25,6 +25,9 @@ export default function Dashboard() {
     const [industryFilter, setIndustryFilter] = useState('Alle');
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [fileUpload, setFileUpload] = useState(null);
+    const [showOnboarding, setShowOnboarding] = useState(() => {
+        return localStorage.getItem('chainguard_onboarding') !== 'dismissed';
+    });
     const navigate = useNavigate();
     const popupRef = useRef(null);
 
@@ -46,6 +49,12 @@ export default function Dashboard() {
             setIndustryFilter(saved.industryFilter || 'Alle');
         }
     }, []);
+
+    useEffect(() => {
+        if (!showOnboarding) {
+            localStorage.setItem('chainguard_onboarding', 'dismissed');
+        }
+    }, [showOnboarding]);
 
     useEffect(() => {
         localStorage.setItem('filters', JSON.stringify({
@@ -116,6 +125,24 @@ export default function Dashboard() {
                     >
                         Logout
                     </button>
+                    {showOnboarding && (
+                        <div className="mt-4 w-full sm:w-auto bg-blue-50 border border-blue-200 text-blue-900 p-4 rounded-lg shadow">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-lg font-semibold">Willkommen bei ChainGuard 🎉</h2>
+                                    <p className="mt-1 text-sm">
+                                        Starte, indem du deinen ersten Lieferanten hinzufügst. Du kannst Dateien anhängen, Risiken bewerten und Berichte exportieren.
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setShowOnboarding(false)}
+                                    className="text-sm text-blue-600 hover:text-blue-800 ml-4"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {isAdmin && (
                         <span className="text-xs text-blue-700 font-medium mt-1">Admin-Modus aktiv</span>
                     )}
