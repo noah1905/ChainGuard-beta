@@ -22,17 +22,23 @@ export default function AddSupplierForm({ user, newSupplier, setNewSupplier, fet
                 .from('suppliers')
                 .update(payload)
                 .eq('id', newSupplier.id));
+            if (error) {
+                setFeedbackMessage('Fehler beim Hinzufügen des Lieferanten. Bitte versuche es erneut.');
+                return;
+            }
         } else {
             ({ error } = await supabase.from('suppliers').insert([payload]));
+            if (error) {
+                setFeedbackMessage('Fehler beim Hinzufügen des Lieferanten. Bitte versuche es erneut.');
+                return;
+            }
         }
 
-        if (!error) {
-            setNewSupplier({ name: '', country: '', industry: '', risk_level: '', note: '' });
-            fetchSuppliers(user.id);
-            const successText = newSupplier.id ? 'Lieferant aktualisiert!' : 'Lieferant hinzugefügt!';
-            setSuccessMessage(successText);
-            setFeedbackMessage(successText);
-        }
+        setNewSupplier({ name: '', country: '', industry: '', risk_level: '', note: '' });
+        fetchSuppliers(user.id);
+        const successText = newSupplier.id ? 'Lieferant aktualisiert!' : 'Lieferant hinzugefügt!';
+        setSuccessMessage(successText);
+        setFeedbackMessage(successText);
     };
 
     useEffect(() => {
@@ -49,7 +55,10 @@ export default function AddSupplierForm({ user, newSupplier, setNewSupplier, fet
         >
             <h2 className="text-xl font-semibold">Neuen Lieferanten hinzufügen</h2>
             {feedbackMessage && (
-                <div className="mb-4 px-4 py-2 bg-green-100 border border-green-400 text-green-800 rounded">
+                <div className={`mb-4 px-4 py-2 rounded ${feedbackMessage.includes('Fehler')
+                        ? 'bg-red-100 border border-red-400 text-red-800'
+                        : 'bg-green-100 border border-green-400 text-green-800'
+                    }`}>
                     {feedbackMessage}
                 </div>
             )}
