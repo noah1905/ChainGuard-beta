@@ -7,6 +7,9 @@ import Dashboard from './Dashboard';
 import ChainGuardLandingPage from './App';
 import Privacy from './pages/Privacy';
 import Impressum from './pages/Impressum';
+import Whistleblower from './pages/Whistleblower';
+import Danke from './pages/Danke';
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -17,8 +20,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/" element={<ChainGuardLandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/whistleblower" element={<Whistleblower />} />
             <Route path="/datenschutz" element={<Privacy />} />
             <Route path="/impressum" element={<Impressum />} />
+            <Route path="/danke" element={<Danke />} />
           </Routes>
         </div>
         <footer className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
