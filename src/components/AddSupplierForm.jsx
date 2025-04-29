@@ -48,6 +48,12 @@ export default function AddSupplierForm({ user, newSupplier, setNewSupplier, fet
         }
     }, [feedbackMessage]);
 
+    useEffect(() => {
+        if (newSupplier?.id) {
+            setConsentGiven(true); // optional: vorausgewählte Zustimmung
+        }
+    }, [newSupplier]);
+
     return (
         <form
             onSubmit={handleSubmit}
@@ -56,8 +62,8 @@ export default function AddSupplierForm({ user, newSupplier, setNewSupplier, fet
             <h2 className="text-xl font-semibold">Neuen Lieferanten hinzufügen</h2>
             {feedbackMessage && (
                 <div className={`mb-4 px-4 py-2 rounded ${feedbackMessage.includes('Fehler')
-                        ? 'bg-red-100 border border-red-400 text-red-800'
-                        : 'bg-green-100 border border-green-400 text-green-800'
+                    ? 'bg-red-100 border border-red-400 text-red-800'
+                    : 'bg-green-100 border border-green-400 text-green-800'
                     }`}>
                     {feedbackMessage}
                 </div>
@@ -120,7 +126,7 @@ export default function AddSupplierForm({ user, newSupplier, setNewSupplier, fet
                 className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50"
                 disabled={!consentGiven}
             >
-                Hinzufügen
+                {newSupplier?.id ? 'Aktualisieren' : 'Hinzufügen'}
             </button>
         </form>
     );
