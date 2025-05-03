@@ -1,23 +1,110 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer utilities {
-    .animate-fadein {
-        @apply opacity-0 animate-fade-in;
+/* Slide in from right animation for toasts */
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
     }
 
-    @keyframes fade-in {
-        from {
-            opacity: 0;
-        }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
 
-        to {
-            opacity: 1;
-        }
+.animate-slideInRight {
+    animation: slideInRight 0.3s ease-out forwards;
+}
+
+/* Fade in animation for content */
+@keyframes fadein {
+    from {
+        opacity: 0;
     }
 
-    .animate-fade-in {
-        animation: fade-in 0.6s ease-out forwards;
+    to {
+        opacity: 1;
     }
+}
+
+.animate-fadein {
+    animation: fadein 0.5s ease-out forwards;
+}
+
+/* Pulse animation for status indicators */
+@keyframes pulse {
+    0% {
+        transform: scale(0.9);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(0.9);
+        opacity: 0.8;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Scale animation for buttons */
+@keyframes scale {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.animate-scale:hover {
+    animation: scale 0.4s ease-in-out;
+}
+
+/* Transition effects */
+.transition-all {
+    transition-property: all;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+}
+
+.duration-200 {
+    transition-duration: 200ms;
+}
+
+.duration-300 {
+    transition-duration: 300ms;
+}
+
+/* Page transitions */
+.page-enter {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+.page-enter-active {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 300ms, transform 300ms;
+}
+
+.page-exit {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.page-exit-active {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 300ms, transform 300ms;
 }
