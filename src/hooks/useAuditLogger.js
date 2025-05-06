@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../client.js';
 
 export function useAuditLogger(isAdmin) {
     const [auditLogs, setAuditLogs] = useState([]);

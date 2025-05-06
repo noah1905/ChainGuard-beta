@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import Measures from './pages/Measures';
+import ComplianceAndDocuments from './pages/ComplianceAndDocuments.jsx';
+import Onboarding from './pages/Onboarding.jsx';
+import Messages from './pages/Messages.jsx';
+import Tasks from './pages/Tasks.jsx';
+import QuickWins from './pages/QuickWins.jsx';
+import Notifications from './pages/Notifications.jsx';
+
 function CookieBanner() {
   const [visible, setVisible] = useState(false);
 
@@ -31,6 +38,7 @@ function CookieBanner() {
     </div>
   );
 }
+
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import './index.css';
@@ -39,26 +47,31 @@ import Dashboard from './Dashboard';
 import ChainGuardLandingPage from './App';
 import Privacy from './pages/Privacy';
 import Impressum from './pages/Impressum';
-import Whistleblower from './components/Whistleblower.jsx';
+import Whistleblower from './pages/Whistleblower.jsx';
 import Danke from './pages/Danke';
 import Analyse from './pages/Analyse';
 import { supabase } from './client.js';
-import LKGCompliancePage from './pages/LKGCompliancePage.jsx';
-import DocumentManagementPage from './pages/DocumentManagementPage.jsx';
 import Kommunikation from './pages/Kommunikation.jsx';
 
 function ProtectedRoute({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      if (data.session && !localStorage.getItem('onboardingComplete') && !localStorage.getItem('onboardingSkipped')) {
+        setShowOnboarding(true);
+      }
       setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session && !localStorage.getItem('onboardingComplete') && !localStorage.getItem('onboardingSkipped')) {
+        setShowOnboarding(true);
+      }
     });
 
     return () => {
@@ -76,7 +89,23 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  return children;
+  return (
+    <>
+      {showOnboarding && (
+        <Onboarding
+          onComplete={() => {
+            localStorage.setItem('onboardingComplete', 'true');
+            setShowOnboarding(false);
+          }}
+          onSkip={() => {
+            localStorage.setItem('onboardingSkipped', 'true');
+            setShowOnboarding(false);
+          }}
+        />
+      )}
+      {children}
+    </>
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -104,20 +133,52 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute>
+                  <Messages />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tasks"
+              element={
+                <ProtectedRoute>
+                  <Tasks />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/quick-wins"
+              element={
+                <ProtectedRoute>
+                  <QuickWins />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <ProtectedRoute>
+                  <Notifications />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/whistleblower" element={<Whistleblower />} />
             <Route path="/datenschutz" element={<Privacy />} />
             <Route path="/impressum" element={<Impressum />} />
             <Route path="/danke" element={<Danke />} />
             <Route path="/analyse" element={<Analyse />} />
-            <Route path="/lkg-compliance" element={<LKGCompliancePage />} />
-            <Route path="/documents" element={<DocumentManagementPage />} />
+            <Route path="/lkg-compliance" element={<ComplianceAndDocuments />} />
             <Route path="/kommunikation" element={<Kommunikation />} />
           </Routes>
         </div>
         <footer className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
           © 2025 ChainGuard. Made with ❤️ in Germany. |
           <Link to="/impressum" className="mx-1 underline hover:text-gray-700 dark:hover:text-gray-200">Impressum</Link>|
-          <Link to="/datenschutz" className="mx-1 underline hover:text-gray-700 dark:hover:text-gray-200">Datenschutz</Link>
+          <Link to="/datenschutz" className="mx-1 underline hover:text-gray-700 dark:hover:text-gray-200">Datenschutz</Link>|
+          <Link to="/whistleblower" className="mx-1 underline hover:text-gray-700 dark:hover:text-gray-200">Whistleblower</Link>
         </footer>
       </div>
     </BrowserRouter>

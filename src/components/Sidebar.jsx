@@ -1,14 +1,16 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { supabase } from '@/supabaseClient';
-import { Home, BarChart2, CheckSquare, Book, MessageSquare } from 'lucide-react';
+import { supabase } from '../client.js';
+import { Home, BarChart2, CheckSquare, MessageSquare, Rocket } from 'lucide-react';
 
 export default function Sidebar() {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const location = useLocation();
-    const navigate = useNavigate();
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [onboardingProgress, setOnboardingProgress] = useState(0);
+    const totalSteps = 5;
+    const navigate = useNavigate();
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -32,6 +34,21 @@ export default function Sidebar() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    useEffect(() => {
+        const onboardingComplete = localStorage.getItem('onboardingComplete');
+        const onboardingData = JSON.parse(localStorage.getItem('onboardingData')) || {};
+
+        if (!onboardingComplete) {
+            let progress = 0;
+            if (onboardingData.companyName) progress += 1;
+            if (onboardingData.complianceAnswers?.length > 0) progress += 1;
+            if (onboardingData.suppliers?.length > 0) progress += 1;
+            if (onboardingData.documents?.length > 0) progress += 1;
+            if (onboardingData.actionPlan) progress += 1;
+            setOnboardingProgress((progress / totalSteps) * 100);
+        }
+    }, []);
+
     const formattedTime = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const formattedDate = currentTime.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -48,16 +65,12 @@ export default function Sidebar() {
         },
         {
             path: '/lkg-compliance',
-            label: 'Compliance',
+            label: 'Compliance-Übersicht',
             icon: <CheckSquare className="h-5 w-5" />
-        },
-        {
-            path: '/documents',
-            label: 'Dokumente',
-            icon: <Book className="h-5 w-5" />
         },
         { path: '/kommunikation', label: 'Kommunikation', icon: <MessageSquare className="h-5 w-5" /> }
     ];
+
     const toggleSidebar = () => {
         setIsCollapsed(!isCollapsed);
     };
@@ -107,7 +120,7 @@ export default function Sidebar() {
                 </div>
 
                 <button
-                    className="hidden lg:block absolute right-1 top-14 text-white/50 hover:text-white/80 transition-colors"
+                    className="hidden lg:block absolute right-1 top-6 text-white/50 hover:text-white/80 transition-colors"
                     onClick={toggleSidebar}
                     aria-label="Toggle sidebar width"
                 >
@@ -117,6 +130,29 @@ export default function Sidebar() {
                 </button>
 
                 <nav className="flex flex-col gap-1 px-2 py-5 flex-grow">
+                    {!localStorage.getItem('onboardingComplete') && (
+                        <button
+                            className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'} 
+                                bg-blue-600 text-white rounded-md transition-all duration-200 group
+                                ${isCollapsed ? 'p-3' : 'px-3 py-2.5'}`}
+                            onClick={() => navigate('/dashboard')}
+                        >
+                            <Rocket className="h-5 w-5 text-white" />
+                            {!isCollapsed && (
+                                <div className="flex justify-between items-center w-full">
+                                    <span className="ml-3 text-sm">Schnellstart</span>
+                                    <span className="text-xs py-0.5 px-2 rounded-md bg-blue-500/30 text-blue-200">
+                                        {Math.round(onboardingProgress)}%
+                                    </span>
+                                </div>
+                            )}
+                            {isCollapsed && (
+                                <div className="absolute left-full ml-2 rounded bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                                    Schnellstart ({Math.round(onboardingProgress)}%)
+                                </div>
+                            )}
+                        </button>
+                    )}
                     {menuItems.map((item) => {
                         const isActive = location.pathname === item.path;
                         return (

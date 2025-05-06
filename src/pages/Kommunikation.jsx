@@ -1,24 +1,20 @@
 import '@/styles/animations.css';
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/supabaseClient.js';
+import { supabase } from '../client.js';
 import Sidebar from '@/components/Sidebar.jsx';
 import {
     MessageSquare,
-    Users,
     PlusCircle,
     Search,
     Send,
-    ChevronDown,
     Calendar,
-    File,
+    FileText,
     CheckCircle,
     Clock,
     Bell,
     X,
     AlertCircle,
-    FileText,
     Download,
-    Paperclip,
     Filter,
     Tag
 } from 'lucide-react';
@@ -27,17 +23,14 @@ import { format, parseISO } from 'date-fns';
 export default function Kommunikation() {
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
-    const [activeTab, setActiveTab] = useState('lieferanten');
     const [conversations, setConversations] = useState([]);
     const [selectedConversation, setSelectedConversation] = useState(null);
-    const [selectedTeamChat, setSelectedTeamChat] = useState(null);
     const [newMessage, setNewMessage] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
     const [showOnboarding, setShowOnboarding] = useState(() => {
         return localStorage.getItem('chainguard_kommunikation_onboarding') !== 'dismissed';
     });
-    const [teamChats, setTeamChats] = useState([]);
     const [tasks, setTasks] = useState([]);
     const [documents, setDocuments] = useState([]);
     const [notifications, setNotifications] = useState([]);
@@ -123,7 +116,7 @@ export default function Kommunikation() {
                         date: lastMessage ? format(parseISO(lastMessage.timestamp), 'dd. MMMM yyyy') : '',
                         unread: supplierMessages.filter(msg => !msg.isRead && msg.sender === 'them').length,
                         avatar: supplier.name.slice(0, 2).toUpperCase(),
-                        status: 'offline', // Could integrate real-time status
+                        status: 'offline',
                         messages: supplierMessages
                     };
                 }).filter(conv => conv.messages.length > 0);
@@ -145,51 +138,6 @@ export default function Kommunikation() {
                             { id: 2, sender: 'me', content: 'Vielen Dank! Bitte achten Sie darauf, dass alle Zertifikate nach ISO 14001 aktualisiert sind.', timestamp: '02.05.2025 15:45', senderName: 'Ich' },
                             { id: 3, sender: 'them', content: 'Wir werden sicherstellen, dass alle Unterlagen vollständig sind. Gibt es eine Frist, die wir einhalten müssen?', timestamp: '02.05.2025 16:20', senderName: 'Maria Schmidt, TechComp AG' },
                             { id: 4, sender: 'me', content: 'Wir benötigen noch Ihre aktualisierten Zertifikate bis Ende des Monats.', timestamp: '03.05.2025 10:23', senderName: 'Ich' }
-                        ]
-                    }
-                ]);
-            }
-
-            // Fetch team chats (simulated as user-to-user messages for simplicity)
-            const { data: teamMessagesData } = await supabase
-                .from('messages')
-                .select('*')
-                .is('supplier_id', null);
-            if (teamMessagesData) {
-                const groupedTeamChats = [
-                    {
-                        id: 1,
-                        name: 'Lieferketten-Team',
-                        lastMessage: 'Meeting zur Quartalsplanung heute um 14:00 Uhr',
-                        timestamp: '11:45',
-                        date: '03. Mai 2025',
-                        unread: 3,
-                        members: ['AK', 'MR', 'JS', 'TK'],
-                        messages: teamMessagesData.map(msg => ({
-                            id: msg.id,
-                            sender: msg.sender_name,
-                            avatar: msg.sender_name.slice(0, 2).toUpperCase(),
-                            content: msg.content,
-                            timestamp: format(parseISO(msg.timestamp), 'dd.MM.yyyy HH:mm')
-                        }))
-                    }
-                ];
-                setTeamChats(groupedTeamChats);
-            } else {
-                setTeamChats([
-                    {
-                        id: 1,
-                        name: 'Lieferketten-Team',
-                        lastMessage: 'Meeting zur Quartalsplanung heute um 14:00 Uhr',
-                        timestamp: '11:45',
-                        date: '03. Mai 2025',
-                        unread: 3,
-                        members: ['AK', 'MR', 'JS', 'TK'],
-                        messages: [
-                            { id: 1, sender: 'Anna Krüger', avatar: 'AK', content: 'Guten Morgen! Wir sollten heute die Quartalsplanung besprechen.', timestamp: '03.05.2025 09:30' },
-                            { id: 2, sender: 'Michael Richter', avatar: 'MR', content: 'Einverstanden. Ich habe die Berichte vorbereitet und werde sie im Meeting präsentieren.', timestamp: '03.05.2025 10:15' },
-                            { id: 3, sender: 'Julia Schmidt', avatar: 'JS', content: 'Ich habe noch Feedback von zwei Lieferanten bekommen, das wir einbeziehen sollten.', timestamp: '03.05.2025 10:45' },
-                            { id: 4, sender: 'Thomas König', avatar: 'TK', content: 'Meeting zur Quartalsplanung heute um 14:00 Uhr', timestamp: '03.05.2025 11:45' }
                         ]
                     }
                 ]);
@@ -291,7 +239,7 @@ export default function Kommunikation() {
                 {
                     user_id: user.id,
                     action: 'viewed_kommunikation_page',
-                    details: 'Accessed communication and collaboration page',
+                    details: 'Accessed supplier communication page',
                     created_at: new Date()
                 }
             ]);
@@ -302,10 +250,10 @@ export default function Kommunikation() {
 
     // Scroll to bottom of messages
     useEffect(() => {
-        if (selectedConversation || selectedTeamChat) {
+        if (selectedConversation) {
             scrollToBottom();
         }
-    }, [selectedConversation, selectedTeamChat]);
+    }, [selectedConversation]);
 
     // Handle success message timeout
     useEffect(() => {
@@ -329,8 +277,8 @@ export default function Kommunikation() {
     const handleSendMessage = async () => {
         if (newMessage.trim() === '') return;
 
-        let conversationId = selectedConversation?.id || selectedTeamChat?.id || crypto.randomUUID();
-        let supplierId = activeTab === 'lieferanten' ? selectedConversation?.id : null;
+        let conversationId = selectedConversation?.id || crypto.randomUUID();
+        let supplierId = selectedConversation?.id;
 
         // Insert message into Supabase
         const { data, error } = await supabase
@@ -355,7 +303,7 @@ export default function Kommunikation() {
             return;
         }
 
-        if (activeTab === 'lieferanten' && selectedConversation) {
+        if (selectedConversation) {
             const updatedConversations = conversations.map(conv => {
                 if (conv.id === selectedConversation.id) {
                     const updatedMessages = [
@@ -398,47 +346,6 @@ export default function Kommunikation() {
                 timestamp: format(new Date(), 'HH:mm'),
                 date: format(new Date(), 'dd. MMMM yyyy')
             });
-        } else if (activeTab === 'teams' && selectedTeamChat) {
-            const updatedTeamChats = teamChats.map(chat => {
-                if (chat.id === selectedTeamChat.id) {
-                    const updatedMessages = [
-                        ...chat.messages,
-                        {
-                            id: data.id,
-                            sender: 'Ich',
-                            avatar: 'ME',
-                            content: newMessage,
-                            timestamp: format(new Date(), 'dd.MM.yyyy HH:mm')
-                        }
-                    ];
-                    return {
-                        ...chat,
-                        messages: updatedMessages,
-                        lastMessage: newMessage,
-                        timestamp: format(new Date(), 'HH:mm'),
-                        date: format(new Date(), 'dd. MMMM yyyy'),
-                        unread: 0
-                    };
-                }
-                return chat;
-            });
-            setTeamChats(updatedTeamChats);
-            setSelectedTeamChat({
-                ...selectedTeamChat,
-                messages: [
-                    ...selectedTeamChat.messages,
-                    {
-                        id: data.id,
-                        sender: 'Ich',
-                        avatar: 'ME',
-                        content: newMessage,
-                        timestamp: format(new Date(), 'dd.MM.yyyy HH:mm')
-                    }
-                ],
-                lastMessage: newMessage,
-                timestamp: format(new Date(), 'HH:mm'),
-                date: format(new Date(), 'dd. MMMM yyyy')
-            });
         }
 
         setNewMessage('');
@@ -450,7 +357,7 @@ export default function Kommunikation() {
             {
                 user_id: user.id,
                 action: 'sent_message',
-                details: `Sent message to ${activeTab === 'lieferanten' ? selectedConversation.supplier : selectedTeamChat.name}`,
+                details: `Sent message to ${selectedConversation.supplier}`,
                 created_at: new Date()
             }
         ]);
@@ -465,32 +372,12 @@ export default function Kommunikation() {
         });
         setConversations(updatedConversations);
         setSelectedConversation({ ...conversation, unread: 0 });
-        setSelectedTeamChat(null);
 
         // Mark messages as read in Supabase
         await supabase
             .from('messages')
             .update({ is_read: true })
             .eq('conversation_id', conversation.id)
-            .eq('is_read', false);
-    };
-
-    const selectTeamChat = async (chat) => {
-        const updatedTeamChats = teamChats.map(c => {
-            if (c.id === chat.id) {
-                return { ...c, unread: 0 };
-            }
-            return c;
-        });
-        setTeamChats(updatedTeamChats);
-        setSelectedTeamChat({ ...chat, unread: 0 });
-        setSelectedConversation(null);
-
-        // Mark team messages as read
-        await supabase
-            .from('messages')
-            .update({ is_read: true })
-            .eq('conversation_id', chat.id)
             .eq('is_read', false);
     };
 
@@ -760,10 +647,6 @@ export default function Kommunikation() {
         conv.supplier.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const filteredTeamChats = teamChats.filter(chat =>
-        chat.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
     const filteredTasks = tasks.filter(task =>
         (taskStatusFilter === 'Alle' ||
             (taskStatusFilter === 'Zu erledigen' && task.status === 'pending') ||
@@ -787,8 +670,8 @@ export default function Kommunikation() {
                     {/* Header */}
                     <header className="flex justify-between items-center mb-8">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Kommunikation & Kollaboration</h1>
-                            <p className="text-gray-500 mt-1">Effiziente Zusammenarbeit mit Lieferanten und Team</p>
+                            <h1 className="text-3xl font-bold text-gray-900">Lieferantenkommunikation</h1>
+                            <p className="text-gray-500 mt-1">Effiziente Kommunikation mit Ihren Lieferanten</p>
                         </div>
                         <div className="flex items-center gap-4">
                             {isAdmin && (
@@ -814,9 +697,9 @@ export default function Kommunikation() {
                                 <div className="flex gap-3">
                                     <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
                                     <div>
-                                        <h3 className="font-semibold">Willkommen bei den Kommunikations- und Kollaborationstools</h3>
+                                        <h3 className="font-semibold">Willkommen bei der Lieferantenkommunikation</h3>
                                         <p className="text-sm mt-1">
-                                            Hier können Sie einfach mit Ihren Lieferanten kommunizieren, Teamaufgaben verwalten und Dokumente zur Freigabe teilen.
+                                            Hier können Sie einfach mit Ihren Lieferanten kommunizieren, Aufgaben verwalten und Dokumente zur Freigabe teilen.
                                         </p>
                                     </div>
                                 </div>
@@ -834,32 +717,14 @@ export default function Kommunikation() {
                     <div className="grid grid-cols-3 gap-8">
                         {/* Left 2/3 Column */}
                         <div className="col-span-2">
-                            {/* Tabs */}
+                            {/* Messaging Area */}
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8 overflow-hidden">
-                                <div className="flex border-b border-gray-200">
-                                    <button
-                                        className={`flex-1 py-4 text-center font-medium relative ${activeTab === 'lieferanten' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
-                                        onClick={() => setActiveTab('lieferanten')}
-                                    >
-                                        <div className="flex items-center justify-center gap-2">
-                                            <MessageSquare size={18} />
-                                            <span>Lieferantenkommunikation</span>
-                                        </div>
-                                        {activeTab === 'lieferanten' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600"></div>}
-                                    </button>
-                                    <button
-                                        className={`flex-1 py-4 text-center font-medium relative ${activeTab === 'teams' ? 'text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
-                                        onClick={() => setActiveTab('teams')}
-                                    >
-                                        <div className="flex items-center justify-center gap-2">
-                                            <Users size={18} />
-                                            <span>Teamkollaboration</span>
-                                        </div>
-                                        {activeTab === 'teams' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600"></div>}
-                                    </button>
+                                <div className="p-4 border-b border-gray-200 bg-gray-50">
+                                    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <MessageSquare size={18} />
+                                        Lieferantenkommunikation
+                                    </h2>
                                 </div>
-
-                                {/* Messaging Area */}
                                 <div className="flex h-[600px]">
                                     {/* Conversation List */}
                                     <div className="w-1/3 border-r border-gray-200">
@@ -868,7 +733,7 @@ export default function Kommunikation() {
                                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
                                                 <input
                                                     type="text"
-                                                    placeholder={activeTab === 'lieferanten' ? 'Lieferant suchen...' : 'Team suchen...'}
+                                                    placeholder="Lieferant suchen..."
                                                     value={searchTerm}
                                                     onChange={(e) => setSearchTerm(e.target.value)}
                                                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -876,98 +741,60 @@ export default function Kommunikation() {
                                             </div>
                                         </div>
                                         <div className="overflow-y-auto h-[535px]">
-                                            {activeTab === 'lieferanten' ? (
-                                                filteredConversations.length > 0 ? (
-                                                    filteredConversations.map(conv => (
-                                                        <div
-                                                            key={conv.id}
-                                                            className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-blue-50' : ''}`}
-                                                            onClick={() => selectConversation(conv)}
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${conv.status === 'online' ? 'bg-green-500' : conv.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'}`}>
-                                                                    {conv.avatar}
+                                            {filteredConversations.length > 0 ? (
+                                                filteredConversations.map(conv => (
+                                                    <div
+                                                        key={conv.id}
+                                                        className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedConversation?.id === conv.id ? 'bg-blue-50' : ''}`}
+                                                        onClick={() => selectConversation(conv)}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-medium ${conv.status === 'online' ? 'bg-green-500' : conv.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'}`}>
+                                                                {conv.avatar}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex justify-between items-center">
+                                                                    <h3 className="font-medium text-gray-900 truncate">{conv.supplier}</h3>
+                                                                    <span className="text-xs text-gray-500">{conv.timestamp}</span>
                                                                 </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <h3 className="font-medium text-gray-900 truncate">{conv.supplier}</h3>
-                                                                        <span className="text-xs text-gray-500">{conv.timestamp}</span>
-                                                                    </div>
-                                                                    <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
-                                                                    <div className="flex justify-between items-center mt-1">
-                                                                        <span className="text-xs text-gray-500">{conv.date}</span>
-                                                                        {conv.unread > 0 && (
-                                                                            <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                                                                {conv.unread}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
+                                                                <p className="text-sm text-gray-600 truncate">{conv.lastMessage}</p>
+                                                                <div className="flex justify-between items-center mt-1">
+                                                                    <span className="text-xs text-gray-500">{conv.date}</span>
+                                                                    {conv.unread > 0 && (
+                                                                        <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                                                                            {conv.unread}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-center text-gray-500 py-8">Keine Gespräche gefunden</p>
-                                                )
+                                                    </div>
+                                                ))
                                             ) : (
-                                                filteredTeamChats.length > 0 ? (
-                                                    filteredTeamChats.map(chat => (
-                                                        <div
-                                                            key={chat.id}
-                                                            className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${selectedTeamChat?.id === chat.id ? 'bg-blue-50' : ''}`}
-                                                            onClick={() => selectTeamChat(chat)}
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-500 text-white font-medium">
-                                                                    {chat.name.slice(0, 2).toUpperCase()}
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex justify-between items-center">
-                                                                        <h3 className="font-medium text-gray-900 truncate">{chat.name}</h3>
-                                                                        <span className="text-xs text-gray-500">{chat.timestamp}</span>
-                                                                    </div>
-                                                                    <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
-                                                                    <div className="flex justify-between items-center mt-1">
-                                                                        <span className="text-xs text-gray-500">{chat.date}</span>
-                                                                        {chat.unread > 0 && (
-                                                                            <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                                                                {chat.unread}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-center text-gray-500 py-8">Keine Team-Chats gefunden</p>
-                                                )
+                                                <p className="text-center text-gray-500 py-8">Keine Gespräche gefunden</p>
                                             )}
                                         </div>
                                     </div>
 
                                     {/* Chat Area */}
                                     <div className="flex-1 flex flex-col">
-                                        {(selectedConversation || selectedTeamChat) ? (
+                                        {selectedConversation ? (
                                             <>
                                                 <div className="p-4 border-b border-gray-200 bg-gray-50">
                                                     <h2 className="text-lg font-semibold text-gray-800">
-                                                        {selectedConversation ? selectedConversation.supplier : selectedTeamChat.name}
+                                                        {selectedConversation.supplier}
                                                     </h2>
-                                                    {selectedTeamChat && (
-                                                        <p className="text-sm text-gray-500">Mitglieder: {selectedTeamChat.members.join(', ')}</p>
-                                                    )}
                                                 </div>
                                                 <div className="flex-1 p-4 overflow-y-auto">
-                                                    {(selectedConversation ? selectedConversation.messages : selectedTeamChat.messages).map(message => (
+                                                    {selectedConversation.messages.map(message => (
                                                         <div
                                                             key={message.id}
-                                                            className={`mb-4 flex ${message.sender === 'me' || message.sender === 'Ich' ? 'justify-end' : 'justify-start'}`}
+                                                            className={`mb-4 flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
                                                         >
                                                             <div
-                                                                className={`max-w-[70%] p-3 rounded-lg ${message.sender === 'me' || message.sender === 'Ich' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}
+                                                                className={`max-w-[70%] p-3 rounded-lg ${message.sender === 'me' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-800'}`}
                                                             >
-                                                                <p className="text-sm font-medium">{message.senderName || message.sender}</p>
+                                                                <p className="text-sm font-medium">{message.senderName}</p>
                                                                 <p className="text-sm mt-1">{message.content}</p>
                                                                 <p className="text-xs text-gray-400 mt-1">{message.timestamp}</p>
                                                             </div>
@@ -995,7 +822,7 @@ export default function Kommunikation() {
                                             </>
                                         ) : (
                                             <div className="flex-1 flex items-center justify-center text-gray-500">
-                                                Wählen Sie ein Gespräch oder einen Team-Chat aus
+                                                Wählen Sie ein Gespräch aus
                                             </div>
                                         )}
                                     </div>

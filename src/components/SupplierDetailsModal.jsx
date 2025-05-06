@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Upload, Calendar, Clock, AlertTriangle, Check, RefreshCw, FileText, AlertCircle } from 'lucide-react';
-import { supabase } from '@/supabaseClient.js';
+import { supabase } from '../client.js';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 

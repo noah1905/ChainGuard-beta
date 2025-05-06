@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
-import { supabase } from '@/supabaseClient'; // Update to use the @ alias
+import { supabase } from '../client.js';
 
 const countries = [
     { value: 'Deutschland', label: 'Deutschland' },

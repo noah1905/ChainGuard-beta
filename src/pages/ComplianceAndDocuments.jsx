@@ -1,16 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/supabaseClient.js';
-import Sidebar from '@/components/Sidebar.jsx';
+import { useEffect, useState, useRef } from 'react';
+import { supabase } from '../client.js';
+import Sidebar from '../components/Sidebar.jsx';
 import {
-    Search, Upload, AlertCircle, FileText, FolderPlus, Calendar,
-    Clock, CheckCircle, XCircle, ChevronDown, Filter, Download,
-    Eye, MoreHorizontal, Trash2, PlusCircle, RefreshCw, X, Bell,
-    AlertTriangle
+    Search, Upload, FileText, AlertCircle, X, Bell, Calendar, Clock, Filter,
+    Download, ChevronDown, AlertTriangle, CheckCircle, Eye, Trash2, RefreshCw,
+    PlusCircle
 } from 'lucide-react';
-import { format, parse, differenceInDays, addDays } from 'date-fns';
+import { format, parse, differenceInDays } from 'date-fns';
 import { de } from 'date-fns/locale';
 
-export default function DocumentManagementPage() {
+export default function ComplianceAndDocuments() {
     const [user, setUser] = useState(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [documents, setDocuments] = useState([]);
@@ -18,21 +17,23 @@ export default function DocumentManagementPage() {
     const [suppliers, setSuppliers] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]);
     const [notifications, setNotifications] = useState([]);
+    const [templates, setTemplates] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('Alle');
     const [statusFilter, setStatusFilter] = useState('Alle');
     const [supplierFilter, setSupplierFilter] = useState('Alle');
     const [sortBy, setSortBy] = useState('date_desc');
     const [showAddDocument, setShowAddDocument] = useState(false);
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [showDocumentDetails, setShowDocumentDetails] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [showOnboarding, setShowOnboarding] = useState(() => {
-        return localStorage.getItem('document_management_onboarding') !== 'dismissed';
+        return localStorage.getItem('compliance_docs_onboarding') !== 'dismissed';
     });
     const popupRef = useRef(null);
 
-    // Fetch user and profile
     useEffect(() => {
         const getUser = async () => {
             const { data, error } = await supabase.auth.getUser();
@@ -44,112 +45,18 @@ export default function DocumentManagementPage() {
                     .eq('id', data.user.id)
                     .single();
                 setIsAdmin(profile?.role === 'admin');
+                fetchData();
             }
         };
         getUser();
     }, []);
 
-    // Fetch categories, suppliers, documents, and requests
-    useEffect(() => {
-        const fetchData = async () => {
-            // Categories
-            const { data: catData } = await supabase.from('categories').select('name');
-            setCategories(catData ? catData.map(c => c.name) : [
-                'Zertifikate', 'Selbstauskünfte', 'Auditergebnisse',
-                'Risikoanalysen', 'Verträge', 'Compliance-Erklärungen'
-            ]);
-
-            // Suppliers
-            const { data: supData } = await supabase.from('suppliers').select('id, name');
-            setSuppliers(supData || [
-                { id: 1, name: 'TechComp AG' },
-                { id: 2, name: 'Textile Solutions GmbH' },
-                { id: 3, name: 'FoodSupply Ltd.' },
-                { id: 4, name: 'AutoParts Corp.' }
-            ]);
-
-            // Documents
-            const { data: docData } = await supabase.from('documents').select('*').eq('user_id', user?.id);
-            if (docData && docData.length > 0) {
-                const processedDocs = docData.map(doc => {
-                    const expiryDate = doc.expiry_date ? parse(doc.expiry_date, 'yyyy-MM-dd', new Date()) : null;
-                    const daysLeft = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
-                    let status = doc.status;
-                    if (!doc.file_url) status = 'Ausstehend';
-                    else if (daysLeft !== null && daysLeft <= 0) status = 'Abgelaufen';
-                    else if (daysLeft !== null && daysLeft <= 30) status = 'Läuft bald ab';
-                    else if (daysLeft !== null) status = 'Aktiv';
-                    return { ...doc, days_left: daysLeft, status };
-                });
-                setDocuments(processedDocs);
-
-                // Generate notifications for expiring documents
-                const newNotifications = processedDocs
-                    .filter(doc => doc.status === 'Läuft bald ab' || doc.status === 'Abgelaufen')
-                    .map(doc => ({
-                        id: `doc-${doc.id}`,
-                        title: doc.status === 'Abgelaufen' ? 'Dokument abgelaufen' : 'Dokument läuft bald ab',
-                        description: `${doc.name} ${doc.status === 'Abgelaufen' ? 'ist abgelaufen' : `läuft am ${doc.expiry_date} ab`}.`,
-                        date: doc.expiry_date || format(new Date(), 'yyyy-MM-dd'),
-                        days_left: doc.days_left,
-                        is_read: false,
-                        priority: doc.status === 'Abgelaufen' ? 'high' : 'medium'
-                    }));
-                setNotifications(newNotifications);
-            } else {
-                // Fallback dummy data
-                setDocuments([
-                    {
-                        id: 1,
-                        name: 'ISO 9001 Zertifikat',
-                        supplier_id: 1,
-                        supplier_name: 'TechComp AG',
-                        category: 'Zertifikate',
-                        upload_date: '2025-04-15',
-                        expiry_date: '2026-04-15',
-                        days_left: differenceInDays(parse('2026-04-15', 'yyyy-MM-dd', new Date()), new Date()),
-                        status: 'Aktiv',
-                        version: '1.0',
-                        file_type: 'pdf',
-                        file_size: '1.2 MB',
-                        uploader: 'Maria Schmidt',
-                        description: 'Gültiges Qualitätsmanagement-Zertifikat',
-                        tags: ['Qualität', 'ISO'],
-                        history: [{ date: '2025-04-15', action: 'Hochgeladen', user: 'Maria Schmidt' }],
-                        file_url: '#'
-                    },
-                    // ... (other dummy documents as in your original code)
-                ]);
-            }
-
-            // Document requests
-            const { data: reqData } = await supabase.from('document_requests').select('*').eq('user_id', user?.id);
-            setPendingRequests(reqData || []);
-            const reqNotifications = reqData
-                ?.filter(req => req.status === 'pending')
-                .map(req => ({
-                    id: `req-${req.id}`,
-                    title: 'Ausstehende Dokumentenanfrage',
-                    description: `${req.document_name} von ${req.supplier_name} noch nicht eingereicht.`,
-                    date: req.requested_at,
-                    days_left: 0,
-                    is_read: false,
-                    priority: 'medium'
-                }));
-            setNotifications(prev => [...prev, ...(reqNotifications || [])]);
-        };
-
-        if (user) fetchData();
-    }, [user]);
-
-    // Handle onboarding dismissal
     useEffect(() => {
         if (!showOnboarding) {
-            localStorage.setItem('document_management_onboarding', 'dismissed');
+            localStorage.setItem('compliance_docs_onboarding', 'dismissed');
         }
     }, [showOnboarding]);
 
-    // Handle success message timeout
     useEffect(() => {
         if (successMessage) {
             const timer = setTimeout(() => setSuccessMessage(''), 3000);
@@ -157,7 +64,67 @@ export default function DocumentManagementPage() {
         }
     }, [successMessage]);
 
-    // Upload document
+    const fetchData = async () => {
+        const { data: catData } = await supabase.from('categories').select('name');
+        setCategories(catData || ['Zertifikate', 'Selbstauskünfte', 'Auditergebnisse', 'Risikoanalysen', 'Verträge', 'Compliance-Erklärungen']);
+
+        const { data: supData } = await supabase.from('suppliers').select('id, name');
+        setSuppliers(supData || [
+            { id: 1, name: 'TechComp AG' },
+            { id: 2, name: 'Textile Solutions GmbH' },
+            { id: 3, name: 'FoodSupply Ltd.' },
+            { id: 4, name: 'AutoParts Corp.' }
+        ]);
+
+        const { data: tempData } = await supabase.from('templates').select('*');
+        setTemplates(tempData || [
+            { id: 1, name: 'Datenschutzerklärung', category: 'Compliance-Erklärungen', description: 'Vorlage für DSGVO-konforme Datenschutzerklärung', content: 'Hier steht der Inhalt der Datenschutzerklärung...' },
+            { id: 2, name: 'AGB', category: 'Verträge', description: 'Allgemeine Geschäftsbedingungen für KMUs', content: 'Hier stehen die AGB...' }
+        ]);
+
+        const { data: docData } = await supabase.from('documents').select('*').eq('user_id', user.id);
+        if (docData) {
+            const processedDocs = docData.map(doc => {
+                const expiryDate = doc.expiry_date ? parse(doc.expiry_date, 'yyyy-MM-dd', new Date()) : null;
+                const daysLeft = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
+                let status = 'Aktiv';
+                if (!doc.file_url) status = 'Ausstehend';
+                else if (daysLeft <= 0) status = 'Abgelaufen';
+                else if (daysLeft <= 30) status = 'Läuft bald ab';
+                return { ...doc, days_left: daysLeft, status, compliance_status: status === 'Abgelaufen' ? 'Nicht konform' : status === 'Läuft bald ab' ? 'Teilkonform' : 'Konform' };
+            });
+            setDocuments(processedDocs);
+
+            const newNotifications = processedDocs
+                .filter(doc => doc.status === 'Läuft bald ab' || doc.status === 'Abgelaufen')
+                .map(doc => ({
+                    id: `doc-${doc.id}`,
+                    title: doc.status === 'Abgelaufen' ? 'Dokument abgelaufen' : 'Dokument läuft bald ab',
+                    description: `${doc.name} (${doc.compliance_status.toLowerCase().replace('_', ' ')}).`,
+                    date: doc.expiry_date || format(new Date(), 'yyyy-MM-dd'),
+                    days_left: doc.days_left,
+                    is_read: false,
+                    priority: doc.status === 'Abgelaufen' ? 'high' : 'medium'
+                }));
+            setNotifications(newNotifications);
+        }
+
+        const { data: reqData } = await supabase.from('document_requests').select('*').eq('user_id', user.id);
+        setPendingRequests(reqData || []);
+        const reqNotifications = reqData
+            ?.filter(req => req.status === 'pending')
+            .map(req => ({
+                id: `req-${req.id}`,
+                title: 'Ausstehende Dokumentenanfrage',
+                description: `${req.document_name} von ${req.supplier_name} noch nicht eingereicht.`,
+                date: req.requested_at,
+                days_left: 0,
+                is_read: false,
+                priority: 'medium'
+            }));
+        setNotifications(prev => [...prev, ...(reqNotifications || [])]);
+    };
+
     const uploadDocument = async (event, formData) => {
         const file = event.target.files[0];
         if (!file || !user) return;
@@ -179,6 +146,11 @@ export default function DocumentManagementPage() {
             .from('documents')
             .getPublicUrl(filePath);
 
+        const expiryDate = formData.expiryDate ? parse(formData.expiryDate, 'yyyy-MM-dd', new Date()) : null;
+        const daysLeft = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
+        const status = !urlData.publicUrl ? 'Ausstehend' : daysLeft <= 30 && daysLeft > 0 ? 'Läuft bald ab' : daysLeft <= 0 ? 'Abgelaufen' : 'Aktiv';
+        const complianceStatus = status === 'Abgelaufen' ? 'Nicht konform' : status === 'Läuft bald ab' ? 'Teilkonform' : 'Konform';
+
         const newDocument = {
             user_id: user.id,
             name: formData.docName,
@@ -187,8 +159,9 @@ export default function DocumentManagementPage() {
             supplier_name: suppliers.find(s => s.id === parseInt(formData.supplier))?.name,
             upload_date: format(new Date(), 'yyyy-MM-dd'),
             expiry_date: formData.expiryDate || null,
-            days_left: formData.expiryDate ? differenceInDays(parse(formData.expiryDate, 'yyyy-MM-dd', new Date()), new Date()) : null,
-            status: formData.expiryDate && differenceInDays(parse(formData.expiryDate, 'yyyy-MM-dd', new Date()), new Date()) <= 30 ? 'Läuft bald ab' : 'Aktiv',
+            days_left: daysLeft,
+            status,
+            compliance_status: complianceStatus,
             version: '1.0',
             file_type: fileExt,
             file_size: `${(file.size / 1024 / 1024).toFixed(1)} MB`,
@@ -200,24 +173,20 @@ export default function DocumentManagementPage() {
         };
 
         const { error: insertError } = await supabase.from('documents').insert([newDocument]);
-        if (insertError) {
-            setSuccessMessage('Fehler beim Speichern des Dokuments');
-            return;
+        if (!insertError) {
+            setDocuments([...documents, newDocument]);
+            setSuccessMessage('Dokument hochgeladen');
+            await supabase.from('audit_logs').insert([
+                {
+                    user_id: user.id,
+                    action: 'document_uploaded',
+                    details: `Uploaded document "${newDocument.name}" to category "${newDocument.category}"`,
+                    created_at: new Date()
+                }
+            ]);
         }
-
-        setDocuments([...documents, newDocument]);
-        setSuccessMessage('Dokument hochgeladen');
-        await supabase.from('audit_logs').insert([
-            {
-                user_id: user.id,
-                action: 'document_uploaded',
-                details: `Uploaded document "${newDocument.name}" to category "${newDocument.category}"`,
-                created_at: new Date()
-            }
-        ]);
     };
 
-    // Add document
     const handleAddDocument = async (e) => {
         e.preventDefault();
         const formData = {
@@ -232,7 +201,6 @@ export default function DocumentManagementPage() {
         setShowAddDocument(false);
     };
 
-    // Request document
     const handleRequestDocument = async () => {
         const documentName = prompt('Name des angeforderten Dokuments:');
         const supplierId = prompt('Lieferanten-ID:');
@@ -261,26 +229,18 @@ export default function DocumentManagementPage() {
                     }
                 ]);
                 setSuccessMessage('Dokumentenanfrage gesendet');
-                await supabase.from('audit_logs').insert([
-                    {
-                        user_id: user.id,
-                        action: 'document_requested',
-                        details: `Requested document "${documentName}" from supplier "${newRequest.supplier_name}"`,
-                        created_at: new Date()
-                    }
-                ]);
 
-                // Add as pending document
                 const pendingDoc = {
                     user_id: user.id,
                     name: documentName,
-                    category: 'Zertifikate', // Default category
+                    category: 'Zertifikate',
                     supplier_id: parseInt(supplierId),
                     supplier_name: newRequest.supplier_name,
                     upload_date: newRequest.requested_at,
                     expiry_date: null,
                     days_left: null,
                     status: 'Ausstehend',
+                    compliance_status: 'Nicht konform',
                     version: '0',
                     file_type: null,
                     file_size: null,
@@ -296,7 +256,6 @@ export default function DocumentManagementPage() {
         }
     };
 
-    // Update document
     const handleUpdateDocument = async (id) => {
         const doc = documents.find(d => d.id === id);
         if (!doc) return;
@@ -311,7 +270,7 @@ export default function DocumentManagementPage() {
                     ...doc.history,
                     { date: format(new Date(), 'yyyy-MM-dd'), action: 'Aktualisiert', user: user.email }
                 ],
-                file_url: doc.file_url // Update with new file URL in production
+                file_url: doc.file_url
             };
             const { error } = await supabase
                 .from('documents')
@@ -332,7 +291,6 @@ export default function DocumentManagementPage() {
         }
     };
 
-    // Delete document
     const handleDeleteDocument = async (id) => {
         if (window.confirm('Sind Sie sicher, dass Sie dieses Dokument löschen möchten?')) {
             const { error } = await supabase.from('documents').delete().eq('id', id);
@@ -351,7 +309,56 @@ export default function DocumentManagementPage() {
         }
     };
 
-    // Mark request as completed
+    const handleUseTemplate = async (e) => {
+        e.preventDefault();
+        const formData = {
+            docName: e.target.docName.value,
+            category: selectedTemplate.category,
+            supplier: e.target.supplier.value,
+            expiryDate: e.target.expiryDate.value,
+            description: e.target.description.value,
+            tags: e.target.tags.value,
+            content: e.target.content.value
+        };
+
+        const newDocument = {
+            user_id: user.id,
+            name: formData.docName,
+            category: formData.category,
+            supplier_id: parseInt(formData.supplier),
+            supplier_name: suppliers.find(s => s.id === parseInt(formData.supplier))?.name,
+            upload_date: format(new Date(), 'yyyy-MM-dd'),
+            expiry_date: formData.expiryDate || null,
+            days_left: formData.expiryDate ? differenceInDays(parse(formData.expiryDate, 'yyyy-MM-dd', new Date()), new Date()) : null,
+            status: 'Aktiv',
+            compliance_status: 'Konform',
+            version: '1.0',
+            file_type: 'txt',
+            file_size: '0.1 MB',
+            uploader: user.email,
+            description: formData.description,
+            tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+            history: [{ date: format(new Date(), 'yyyy-MM-dd'), action: 'Erstellt aus Vorlage', user: user.email }],
+            file_url: null
+        };
+
+        const { error: insertError } = await supabase.from('documents').insert([new AMLDocument]);
+        if (!insertError) {
+            setDocuments([...documents, newDocument]);
+            setSuccessMessage('Dokument aus Vorlage erstellt');
+            await supabase.from('audit_logs').insert([
+                {
+                    user_id: user.id,
+                    action: 'document_created_from_template',
+                    details: `Created document "${newDocument.name}" from template "${selectedTemplate.name}"`,
+                    created_at: new Date()
+                }
+            ]);
+        }
+        setShowTemplateModal(false);
+        setSelectedTemplate(null);
+    };
+
     const markRequestAsCompleted = async (id) => {
         const request = pendingRequests.find(req => req.id === id);
         if (!request) return;
@@ -376,19 +383,44 @@ export default function DocumentManagementPage() {
         }
     };
 
-    // Mark notification as read
     const markNotificationAsRead = (id) => {
         setNotifications(notifications.map(n =>
             n.id === id ? { ...n, is_read: true } : n
         ));
     };
 
-    // Dismiss notification
     const dismissNotification = (id) => {
         setNotifications(notifications.filter(n => n.id !== id));
     };
 
-    // Filtered and sorted documents
+    const getStatusBadgeStyle = (status) => {
+        switch (status) {
+            case 'Aktiv': return 'bg-green-100 text-green-800';
+            case 'Läuft bald ab': return 'bg-yellow-100 text-yellow-800';
+            case 'Abgelaufen': return 'bg-red-100 text-red-800';
+            case 'Ausstehend': return 'bg-blue-100 text-blue-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getComplianceStatusStyle = (complianceStatus) => {
+        switch (complianceStatus) {
+            case 'Konform': return 'bg-green-100 text-green-800';
+            case 'Teilkonform': return 'bg-yellow-100 text-yellow-800';
+            case 'Nicht konform': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
+    const getPriorityIndicator = (priority) => {
+        switch (priority) {
+            case 'high': return <span className="block w-2 h-2 rounded-full bg-red-500"></span>;
+            case 'medium': return <span className="block w-2 h-2 rounded-full bg-yellow-500"></span>;
+            case 'low': return <span className="block w-2 h-2 rounded-full bg-blue-500"></span>;
+            default: return null;
+        }
+    };
+
     const filteredDocuments = documents.filter(doc => {
         const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             doc.supplier_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -402,56 +434,19 @@ export default function DocumentManagementPage() {
 
     const sortedDocuments = [...filteredDocuments].sort((a, b) => {
         switch (sortBy) {
-            case 'date_desc':
-                return new Date(b.upload_date) - new Date(a.upload_date);
-            case 'date_asc':
-                return new Date(a.upload_date) - new Date(b.upload_date);
-            case 'name_asc':
-                return a.name.localeCompare(b.name);
-            case 'name_desc':
-                return b.name.localeCompare(a.name);
-            default:
-                return 0;
+            case 'date_desc': return new Date(b.upload_date) - new Date(a.upload_date);
+            case 'date_asc': return new Date(a.upload_date) - new Date(b.upload_date);
+            case 'name_asc': return a.name.localeCompare(b.name);
+            case 'name_desc': return b.name.localeCompare(a.name);
+            default: return 0;
         }
     });
 
-    // Status counts
     const statusCounts = documents.reduce((acc, doc) => {
         acc[doc.status] = (acc[doc.status] || 0) + 1;
         return acc;
     }, {});
 
-    // Status badge styling
-    const getStatusBadgeStyle = (status) => {
-        switch (status) {
-            case 'Aktiv':
-                return 'bg-green-100 text-green-800';
-            case 'Läuft bald ab':
-                return 'bg-yellow-100 text-yellow-800';
-            case 'Abgelaufen':
-                return 'bg-red-100 text-red-800';
-            case 'Ausstehend':
-                return 'bg-blue-100 text-blue-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    // Priority indicator for notifications
-    const getPriorityIndicator = (priority) => {
-        switch (priority) {
-            case 'high':
-                return <span className="block w-2 h-2 rounded-full bg-red-500"></span>;
-            case 'medium':
-                return <span className="block w-2 h-2 rounded-full bg-yellow-500"></span>;
-            case 'low':
-                return <span className="block w-2 h-2 rounded-full bg-blue-500"></span>;
-            default:
-                return null;
-        }
-    };
-
-    // Unread notifications count
     const unreadCount = notifications.filter(n => !n.is_read).length;
 
     return (
@@ -459,11 +454,10 @@ export default function DocumentManagementPage() {
             <Sidebar />
             <div className="flex-1 ml-72">
                 <div className="max-w-7xl mx-auto p-8">
-                    {/* Header */}
                     <header className="flex justify-between items-center mb-8">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Dokumentenverwaltung</h1>
-                            <p className="text-gray-500 mt-1">Verwaltung von Nachweisdokumenten für Sorgfaltspflichten</p>
+                            <h1 className="text-3xl font-bold text-gray-900">Compliance & Dokumente</h1>
+                            <p className="text-gray-500 mt-1">Verwaltung von Nachweisdokumenten und Compliance-Status</p>
                         </div>
                         <div className="flex items-center gap-4">
                             {isAdmin && (
@@ -482,16 +476,15 @@ export default function DocumentManagementPage() {
                         </div>
                     </header>
 
-                    {/* Onboarding Message */}
                     {showOnboarding && (
                         <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 text-blue-800 p-4 rounded-lg shadow-sm">
                             <div className="flex justify-between items-start">
                                 <div className="flex gap-3">
                                     <AlertCircle className="h-5 w-5 text-blue-500 mt-0.5" />
                                     <div>
-                                        <h3 className="font-semibold">Willkommen zur Dokumentenverwaltung</h3>
+                                        <h3 className="font-semibold">Willkommen zu Compliance & Dokumente</h3>
                                         <p className="text-sm mt-1">
-                                            Hier können Sie Dokumente wie Zertifikate und Auditergebnisse hochladen, versionieren und deren Ablaufdaten überwachen. Verfolgen Sie ausstehende Anfragen und erhalten Sie Warnungen bei ablaufenden Dokumenten.
+                                            Verwalten Sie Dokumente, nutzen Sie Vorlagen für LKG-Anforderungen und überwachen Sie den Compliance-Status.
                                         </p>
                                     </div>
                                 </div>
@@ -505,7 +498,6 @@ export default function DocumentManagementPage() {
                         </div>
                     )}
 
-                    {/* Status Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
                         <div className="p-4 rounded-lg bg-gradient-to-br from-green-50 to-green-100 border border-green-200">
                             <div className="flex justify-between">
@@ -513,9 +505,7 @@ export default function DocumentManagementPage() {
                                     <p className="text-xs font-medium text-green-700 uppercase">Aktive Dokumente</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">{statusCounts['Aktiv'] || 0}</p>
                                 </div>
-                                <div className="text-green-500">
-                                    <CheckCircle size={24} />
-                                </div>
+                                <CheckCircle size={24} className="text-green-500" />
                             </div>
                         </div>
                         <div className="p-4 rounded-lg bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200">
@@ -524,9 +514,7 @@ export default function DocumentManagementPage() {
                                     <p className="text-xs font-medium text-yellow-700 uppercase">Bald ablaufend</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">{statusCounts['Läuft bald ab'] || 0}</p>
                                 </div>
-                                <div className="text-yellow-500">
-                                    <Clock size={24} />
-                                </div>
+                                <Clock size={24} className="text-yellow-500" />
                             </div>
                         </div>
                         <div className="p-4 rounded-lg bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
@@ -535,9 +523,7 @@ export default function DocumentManagementPage() {
                                     <p className="text-xs font-medium text-red-700 uppercase">Abgelaufen</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">{statusCounts['Abgelaufen'] || 0}</p>
                                 </div>
-                                <div className="text-red-500">
-                                    <AlertCircle size={24} />
-                                </div>
+                                <AlertCircle size={24} className="text-red-500" />
                             </div>
                         </div>
                         <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
@@ -546,17 +532,52 @@ export default function DocumentManagementPage() {
                                     <p className="text-xs font-medium text-blue-700 uppercase">Ausstehend</p>
                                     <p className="text-2xl font-bold text-gray-900 mt-1">{statusCounts['Ausstehend'] || 0}</p>
                                 </div>
-                                <div className="text-blue-500">
-                                    <XCircle size={24} />
-                                </div>
+                                <AlertTriangle size={24} className="text-blue-500" />
                             </div>
                         </div>
                     </div>
 
-                    {/* Main Content Grid */}
                     <div className="grid grid-cols-3 gap-8">
-                        {/* Left 2/3 Column - Document List */}
                         <div className="col-span-2">
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+                                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+                                    <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-blue-600" />
+                                        Vorlagenbibliothek
+                                    </h2>
+                                    <button
+                                        className="text-sm px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1"
+                                        onClick={() => setShowTemplateModal(true)}
+                                    >
+                                        <PlusCircle size={14} />
+                                        Vorlage auswählen
+                                    </button>
+                                </div>
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {templates.map(template => (
+                                            <div
+                                                key={template.id}
+                                                className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                                            >
+                                                <h3 className="font-medium text-gray-900">{template.name}</h3>
+                                                <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                                                <p className="text-xs text-gray-400 mt-2">Kategorie: {template.category}</p>
+                                                <button
+                                                    className="mt-3 text-sm text-blue-600 hover:underline"
+                                                    onClick={() => {
+                                                        setSelectedTemplate(template);
+                                                        setShowTemplateModal(true);
+                                                    }}
+                                                >
+                                                    Vorlage verwenden
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                                 <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
                                     <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
@@ -662,6 +683,7 @@ export default function DocumentManagementPage() {
                                                     <th className="px-6 py-3 text-left">Hochgeladen</th>
                                                     <th className="px-6 py-3 text-left">Gültig bis</th>
                                                     <th className="px-6 py-3 text-left">Status</th>
+                                                    <th className="px-6 py-3 text-left">Compliance-Status</th>
                                                     <th className="px-6 py-3 text-left">Version</th>
                                                     <th className="px-6 py-3 text-center">Aktionen</th>
                                                 </tr>
@@ -702,6 +724,11 @@ export default function DocumentManagementPage() {
                                                                     {doc.status}
                                                                 </span>
                                                             </td>
+                                                            <td className="px-6 py-4">
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getComplianceStatusStyle(doc.compliance_status)}`}>
+                                                                    {doc.compliance_status}
+                                                                </span>
+                                                            </td>
                                                             <td className="px-6 py-4 text-sm text-gray-500">v{doc.version}</td>
                                                             <td className="px-6 py-4 text-center">
                                                                 <div className="flex justify-center space-x-2">
@@ -712,6 +739,7 @@ export default function DocumentManagementPage() {
                                                                             rel="noopener noreferrer"
                                                                             className="text-gray-500 hover:text-blue-600"
                                                                             title="Dokument ansehen"
+                                                                            onClick={() => { setSelectedDoc(doc); setShowDocumentDetails(true); }}
                                                                         >
                                                                             <Eye size={18} />
                                                                         </a>
@@ -738,7 +766,7 @@ export default function DocumentManagementPage() {
                                                     ))
                                                 ) : (
                                                     <tr>
-                                                        <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                                                        <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
                                                             Keine Dokumente gefunden
                                                         </td>
                                                     </tr>
@@ -750,7 +778,6 @@ export default function DocumentManagementPage() {
                             </div>
                         </div>
 
-                        {/* Right 1/3 Column - Notifications and Pending Requests */}
                         <div className="col-span-1">
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-8">
                                 <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
@@ -849,7 +876,6 @@ export default function DocumentManagementPage() {
                         </div>
                     </div>
 
-                    {/* Add Document Modal */}
                     {showAddDocument && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                             <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden">
@@ -955,7 +981,129 @@ export default function DocumentManagementPage() {
                         </div>
                     )}
 
-                    {/* Document Details Modal */}
+                    {showTemplateModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden">
+                                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+                                    <h3 className="text-lg font-semibold text-gray-800">
+                                        {selectedTemplate ? `Vorlage anpassen: ${selectedTemplate.name}` : 'Vorlage auswählen'}
+                                    </h3>
+                                    <button
+                                        onClick={() => {
+                                            setShowTemplateModal(false);
+                                            setSelectedTemplate(null);
+                                        }}
+                                        className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                                    >
+                                        <X size={20} className="text-gray-500" />
+                                    </button>
+                                </div>
+                                {selectedTemplate ? (
+                                    <form onSubmit={handleUseTemplate} className="p-6">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Dokumentname</label>
+                                                <input
+                                                    type="text"
+                                                    name="docName"
+                                                    defaultValue={selectedTemplate.name}
+                                                    required
+                                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Lieferant</label>
+                                                <select
+                                                    name="supplier"
+                                                    required
+                                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                >
+                                                    {suppliers.map(supplier => (
+                                                        <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Ablaufdatum (optional)</label>
+                                                <input
+                                                    type="date"
+                                                    name="expiryDate"
+                                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Beschreibung</label>
+                                                <textarea
+                                                    name="description"
+                                                    defaultValue={selectedTemplate.description}
+                                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    rows="4"
+                                                ></textarea>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Inhalt</label>
+                                                <textarea
+                                                    name="content"
+                                                    defaultValue={selectedTemplate.content}
+                                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    rows="6"
+                                                ></textarea>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700">Tags (kommagetrennt)</label>
+                                                <input
+                                                    type="text"
+                                                    name="tags"
+                                                    defaultValue="Vorlage, Compliance"
+                                                    className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="mt-6 flex justify-end gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setShowTemplateModal(false);
+                                                    setSelectedTemplate(null);
+                                                }}
+                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                                            >
+                                                Abbrechen
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                                            >
+                                                Dokument erstellen
+                                            </button>
+                                        </div>
+                                    </form>
+                                ) : (
+                                    <div className="p-6">
+                                        <div className="grid grid-cols-1 gap-4">
+                                            {templates.map(template => (
+                                                <div
+                                                    key={template.id}
+                                                    className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                                                >
+                                                    <h3 className="font-medium text-gray-900">{template.name}</h3>
+                                                    <p className="text-sm text-gray-500 mt-1">{template.description}</p>
+                                                    <p className="text-xs text-gray-400 mt-2">Kategorie: {template.category}</p>
+                                                    <button
+                                                        className="mt-3 text-sm text-blue-600 hover:underline"
+                                                        onClick={() => setSelectedTemplate(template)}
+                                                    >
+                                                        Vorlage verwenden
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     {showDocumentDetails && selectedDoc && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                             <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl mx-4 overflow-hidden">
@@ -993,8 +1141,10 @@ export default function DocumentManagementPage() {
                                             </span>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-gray-700">Version</p>
-                                            <p className="text-sm text-gray-500">v{selectedDoc.version}</p>
+                                            <p className="text-sm font-medium text-gray-700">Compliance-Status</p>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getComplianceStatusStyle(selectedDoc.compliance_status)}`}>
+                                                {selectedDoc.compliance_status}
+                                            </span>
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium text-gray-700">Dateityp</p>
@@ -1011,7 +1161,7 @@ export default function DocumentManagementPage() {
                                         <div className="col-span-2">
                                             <p className="text-sm font-medium text-gray-700">Tags</p>
                                             <div className="flex flex-wrap gap-2">
-                                                {selectedDoc.tags && selectedDoc.tags.map((tag, index) => (
+                                                {selectedDoc.tags && 入选Doc.tags.map((tag, index) => (
                                                     <span key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                                                         {tag}
                                                     </span>
@@ -1048,7 +1198,6 @@ export default function DocumentManagementPage() {
                         </div>
                     )}
 
-                    {/* Success Message Toast */}
                     {successMessage && (
                         <div
                             ref={popupRef}

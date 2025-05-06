@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../client.js';
 
 export default function SupplierAttachments({ supplierId }) {
     const [files, setFiles] = useState([]);

@@ -1,17 +1,19 @@
 import { useNavigate } from "react-router-dom";
 import React, { useState } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from './client.js';
 
 export default function AuthPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLogin, setIsLogin] = useState(true);
     const [message, setMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const navigate = useNavigate();
 
     const handleAuth = async (e) => {
         e.preventDefault();
         setMessage("");
+        setIsSubmitting(true);
 
         if (isLogin) {
             const { data, error } = await supabase.auth.signInWithPassword({
@@ -22,8 +24,9 @@ export default function AuthPage() {
             const sessionCheck = await supabase.auth.getSession();
 
             if (error || !sessionCheck.data.session) {
-                setMessage("Fehler: Login nicht erfolgreich.");
+                setMessage("❌ Fehler: Login nicht erfolgreich.");
             } else {
+                setMessage("✅ Login erfolgreich.");
                 navigate("/dashboard");
             }
         } else {
@@ -32,11 +35,13 @@ export default function AuthPage() {
                 password,
             });
             if (error) {
-                setMessage("Fehler: " + error.message);
+                setMessage("❌ Fehler: " + error.message);
             } else {
-                setMessage("Registrierung erfolgreich. Bitte bestätige deine E-Mail.");
+                setMessage("✅ Registrierung erfolgreich. Bitte bestätige deine E-Mail.");
             }
         }
+
+        setIsSubmitting(false);
     };
 
     return (
@@ -64,9 +69,16 @@ export default function AuthPage() {
                     />
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold"
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-50"
+                        disabled={isSubmitting}
                     >
-                        {isLogin ? "Einloggen" : "Registrieren"}
+                        {isSubmitting
+                            ? isLogin
+                                ? "Einloggen..."
+                                : "Registrieren..."
+                            : isLogin
+                                ? "Einloggen"
+                                : "Registrieren"}
                     </button>
                 </form>
                 <p className="text-sm mt-4 text-center">
@@ -79,7 +91,14 @@ export default function AuthPage() {
                     </button>
                 </p>
                 {message && (
-                    <p className="mt-4 text-sm text-center text-green-500 dark:text-green-400">{message}</p>
+                    <p
+                        className={`mt-4 text-sm text-center ${message.startsWith("✅")
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-red-600 dark:text-red-400"
+                            }`}
+                    >
+                        {message}
+                    </p>
                 )}
             </div>
         </div>

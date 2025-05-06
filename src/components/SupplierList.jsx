@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { differenceInMonths } from 'date-fns';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../client.js';
 import { FileText, Trash2, Edit, ChevronRight, Download, Search } from 'lucide-react';
 
 export default function SupplierList({
